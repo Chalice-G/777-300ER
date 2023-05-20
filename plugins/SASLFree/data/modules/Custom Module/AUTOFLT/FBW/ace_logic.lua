@@ -14,6 +14,7 @@ include("fbw_bite.lua")
 yoke_pitch_ratio = globalPropertyf("sim/cockpit2/controls/yoke_pitch_ratio")
 yoke_roll_ratio = globalPropertyf("sim/cockpit2/controls/yoke_roll_ratio")
 yoke_heading_ratio = globalPropertyf("sim/cockpit2/controls/yoke_heading_ratio")
+rud_pedals = globalPropertyf("Strato/777/cockpit/switches/rud_pedals")
 stab_trim = globalPropertyf("sim/cockpit2/controls/elevator_trim")
 spoiler_handle = globalPropertyf("sim/cockpit2/controls/speedbrake_ratio")
 throttle_pos = globalPropertyf("sim/cockpit2/engine/actuators/throttle_ratio_all")
@@ -73,6 +74,9 @@ maneuver_speed = globalPropertyi("Strato/777/fctl/vmanuever")
 --Stabilizer and rudder trim
 stab_cutout_C = globalPropertyi("Strato/777/fctl/stab_cutout_C")
 stab_cutout_R = globalPropertyi("Strato/777/fctl/stab_cutout_R")
+pitch_trim_A = globalPropertyi("Strato/777/cockpit/switches/strim_A")
+pitch_trim_B = globalPropertyi("Strato/777/cockpit/switches/strim_B")
+pitch_trim_altn = globalPropertyi("Strato/777/cockpit/switches/strim_altn")
 ths_degrees = globalPropertyf("sim/flightmodel2/controls/stabilizer_deflection_degrees")
 tac_engage = globalPropertyi("Strato/777/fctl/ace/tac_eng")
 tac_fail = globalPropertyi("Strato/777/fctl/ace/tac_fail")
@@ -88,13 +92,16 @@ pfc_maneuver_speeds = globalProperty("Strato/777/fctl/databus/maneuver_speeds")
 pfc_ra = globalPropertyf("Strato/777/fctl/databus/rad_alt")
 pfc_alt_baro = globalPropertyf("Strato/777/fctl/databus/alt_baro")
 pfc_cas = globalPropertyf("Strato/777/fctl/databus/cas")
-pfc_flt_axes = globalProperty("Strato/777/fctl/databus/flt_axes") --pitch, roll
+pfc_flt_axes = globalProperty("Strato/777/fctl/databus/flt_axes") --pitch, roll, yaw
+pfc_slip = globalPropertyf("Strato/777/fctl/databus/slip")
 pfc_thrust = globalProperty("Strato/777/fctl/databus/thrust")
 pfc_flaps = globalPropertyf("Strato/777/fctl/databus/flaps")
 pfc_mass = globalPropertyf("Strato/777/fctl/databus/mass_total")
 pfc_ths_current = globalPropertyf("Strato/777/fctl/databus/ths_current")
 pfc_stab_trim_operative = globalPropertyi("Strato/777/fctl/databus/stab_trim_op")
---Pfc output
+--PFC input
+fbw_trim_speed = globalPropertyf("Strato/777/fctl/trs")
+--PFC output
 fbw_mode = globalProperty("Strato/777/fctl/pfc/mode")
 pfc_roll_command = globalPropertyf("Strato/777/fctl/pfc/roll")
 pfc_elevator_command = globalPropertyf("Strato/777/fctl/pfc/elevator")
@@ -136,7 +143,7 @@ pcu_sp = globalProperty("Strato/777/fctl/pcu/sp")
 Ail_neutral = {0, 0, 5, 5, 5, 0, 0}
 Flprn_neutral = {0, 0, 5, 14, 16, 29, 29}
 rud_trim_auto_past = 0
-Control_surface = {aces = {0, 0}, hyd_sys = {0, 0}, ratio1 = 18, ratio2 = 18, mode = 0}
+Control_surface = {aces = {0, 0}, hyd_sys = {0, 0}, full_up = 18, full_dn = 18, mode = 0}
 
 function Control_surface:new(tmp)
     tmp = tmp or {}
@@ -227,6 +234,7 @@ function sendFLTdata()
         set(pfc_flt_axes, avg_pitch, 1)
         set(pfc_flt_axes, avg_roll, 2)
         set(pfc_flt_axes, get(yaw), 3)
+        set(pfc_slip, get(slip))
         --Flaps
         set(pfc_flaps, get(flaps))
         --Stab trim
@@ -302,13 +310,13 @@ function GetFBWAilRatio(fctl_mode, avg_alt, avg_cas, flap_pos)
 			speed_lim_max = lockout_speeds[1]
 		end
 		if avg_cas <= speed_lim_min then
-			return 36
+			return 1
 		elseif avg_cas > speed_lim_min and avg_cas < speed_lim_max then
-			return 36 * (1 - ((avg_cas - speed_lim_min) / (speed_lim_max - speed_lim_min)))
+			return (1 - ((avg_cas - speed_lim_min) / (speed_lim_max - speed_lim_min)))
 		end
 	else
 		if flap_pos ~= 0 then
-			return 36
+			return 1
 		end
 	end
     return 0
@@ -360,10 +368,10 @@ end
 function FlprnTOHandler(sfc, idx)
     local flprn_drefs = {flprn_L_act, flprn_R_act}
     local avg_cas = (get(cas_pilot) + get(cas_copilot)) / 2
-    if Round(get(flprn_drefs[idx]), 2) == sfc.ratio2 or avg_cas > 100 then
+    if Round(get(flprn_drefs[idx]), 2) == sfc.full_dn or avg_cas > 100 then
         set(sfc.mode, 0, idx)
     else
-        local flprn_command = EvenChange(get(ace_flaperon, idx), sfc.ratio2, 0.2)
+        local flprn_command = EvenChange(get(ace_flaperon, idx), sfc.full_dn, 0.2)
         set(ace_flaperon, flprn_command, idx)
     end
 end
@@ -413,8 +421,8 @@ function UpdateSpoilers(avg_cas, spoilers, sp_fail_drefs, sp_cmd_dref, activatio
     end
     --Setting Commands
     if sp_main_avail then
-        set(sp_cmd_dref, pri_spoiler_command_L * spoilers[1].ratio1 - (1 / 16) * avg_cas, 2)
-        set(sp_cmd_dref, pri_spoiler_command_R * spoilers[1].ratio1 - (1 / 16) * avg_cas, 4)
+        set(sp_cmd_dref, pri_spoiler_command_L * spoilers[1].full_up - (1 / 16) * avg_cas, 2)
+        set(sp_cmd_dref, pri_spoiler_command_R * spoilers[1].full_up - (1 / 16) * avg_cas, 4)
         set(pcu_sp, 1, 2)
         set(pcu_sp, 1, 4)
     else
@@ -424,8 +432,8 @@ function UpdateSpoilers(avg_cas, spoilers, sp_fail_drefs, sp_cmd_dref, activatio
         set(pcu_sp, 0, 4)
     end
     if sp_sec_avail then
-        set(sp_cmd_dref, sec_spoiler_command_L * spoilers[4].ratio1, 1)
-        set(sp_cmd_dref, sec_spoiler_command_R * spoilers[4].ratio1, 3)
+        set(sp_cmd_dref, sec_spoiler_command_L * spoilers[4].full_up, 1)
+        set(sp_cmd_dref, sec_spoiler_command_R * spoilers[4].full_up, 3)
         set(pcu_sp, 1, 1)
         set(pcu_sp, 1, 3)
     else
@@ -438,17 +446,17 @@ end
 
 function UpdateRoll(avg_cas, avg_alt, ail_L, ail_R, flp_L, flp_R)
     local ail_ratio = GetFBWAilRatio(get(fbw_mode), avg_alt, avg_cas, get(flaps))
-    local ail_neutral = GetRollNeutral(get(flaps), Ail_neutral) * ail_ratio / 36
+    local ail_neutral = GetRollNeutral(get(flaps), Ail_neutral)
     local flprn_neutral = GetRollNeutral(get(flaps), Flprn_neutral) * (1 - lim(get(spoiler_handle), 1, 0))
     local roll_command = 0
     local flprn_command = 0
     if get(fbw_mode) == 1 and get(on_ground) == 0 then
-        roll_command = get(pfc_roll_command) / 18
+        roll_command = get(pfc_roll_command)
     else
         roll_command = get(yoke_roll_ratio)
     end
-    local ail_pos_L = getPosition(roll_command, ail_neutral, ail_ratio / 2, ail_ratio / 2)
-    local ail_pos_R = getPosition(-roll_command, ail_neutral, ail_ratio / 2, ail_ratio / 2)
+    local ail_pos_L = getPosition(roll_command, ail_neutral, ail_ratio * ail_L.full_up, ail_ratio * ail_L.full_dn)
+    local ail_pos_R = getPosition(-roll_command, ail_neutral, ail_ratio * ail_R.full_up, ail_ratio * ail_R.full_dn)
     local ail_fail = AilFailHandler
     local flp_fail = FlprnFailHandler
     ail_L:setCmd(ace_aileron, ace_aileron_fail_L, ail_pos_L, 1, ail_fail)
@@ -457,8 +465,8 @@ function UpdateRoll(avg_cas, avg_alt, ail_L, ail_R, flp_L, flp_R)
         FlprnTOHandler(flp_L, 1)
         FlprnTOHandler(flp_R, 2)
     else
-        local flp_pos_L = getPosition(roll_command, flprn_neutral, flp_L.ratio1, flp_L.ratio2)
-        local flp_pos_R = getPosition(-roll_command, flprn_neutral, flp_R.ratio1, flp_R.ratio2)
+        local flp_pos_L = getPosition(roll_command, flprn_neutral, flp_L.full_up, flp_L.full_dn)
+        local flp_pos_R = getPosition(-roll_command, flprn_neutral, flp_R.full_up, flp_R.full_dn)
         flp_L:setCmd(ace_flaperon, ace_flaperon_fail_L, flp_pos_L, 1, flp_fail)
         flp_R:setCmd(ace_flaperon, ace_flaperon_fail_R, flp_pos_R, 2, flp_fail)
     end
@@ -471,7 +479,7 @@ function UpdateYaw(rudder)
     local yaw_cmd = 0
     local rud_fail = RudderFailHandler
     if get(fbw_mode) < 3 and get(on_ground) == 0 then
-        yaw_cmd = get(pfc_rudder_command) / rud_ratio
+        yaw_cmd = get(pfc_rudder_command)
     else
         yaw_cmd = get(yoke_heading_ratio)
     end
@@ -492,8 +500,8 @@ function UpdatePitch(elev_L, elev_R)
             lower_rato = (direct_coefficients[1][1] + get(flaps) * (direct_coefficients[2][1] - direct_coefficients[1][1]) / 30) * 100
             upper_ratio = (direct_coefficients[1][2] + get(flaps) * (direct_coefficients[2][2] - direct_coefficients[1][2]) / 30) * 100
         else
-            upper_ratio = elev_L.ratio1
-            lower_rato = elev_L.ratio2
+            upper_ratio = elev_L.full_up
+            lower_rato = elev_L.full_dn
         end
         elevator_cmd = getPosition(-get(yoke_pitch_ratio), 0, upper_ratio, lower_rato)
     end
@@ -522,6 +530,31 @@ function UpdateRudderTrim()
     end
 end
 
+function UpdateManPitchTrim()
+    local avg_input = (get(pitch_trim_A) + get(pitch_trim_B)) / 2
+    if math.abs(get(pitch_trim_altn)) == 1 then
+        avg_input = get(pitch_trim_altn)
+    end
+    if math.abs(avg_input) == 1 then
+        if get(on_ground) == 1 or get(fbw_mode) ~= 1 then
+	    	if get(hyd_pressure, 2) * (1 - get(stab_cutout_C)) > 900 or get(hyd_pressure, 3) * (1 - get(stab_cutout_R)) > 900 then
+	    		local tmp_val = lim(get(stab_trim) + 0.25 * get(f_time) * avg_input, 1, -1)
+                set(stab_trim, tmp_val)
+	    	end
+	    else
+            local tmp_val = lim(get(fbw_trim_speed) - 2 * get(f_time) * avg_input, 
+                                get(max_allowable), get(maneuver_speed))
+            set(fbw_trim_speed, tmp_val)
+	    end
+    end
+end
+
+function UpdateRudPedals()
+    local trim_ratio = get(rud_trim_man) / 27
+    local pedal_pos = getPosition(get(yoke_heading_ratio), trim_ratio, 1, 1)
+    set(rud_pedals, pedal_pos)
+end
+
 function UpdateStabTrim()
     if isStabTrimOperative() == 1 and get(on_ground) == 0 and get(fbw_mode) == 1 then
         set(stab_trim, get(pfc_stab_trim_cmd))
@@ -529,18 +562,18 @@ function UpdateStabTrim()
     set(ths_degrees, get(stab_trim) * -11)
 end
 
-ail_L = Control_surface:new{aces = {2, 3}, hyd_sys = {1, 2}, ratio1 = 18, ratio2 = 18, mode = pcu_aileron}
-ail_R = Control_surface:new{aces = {1, 4}, hyd_sys = {1, 2}, ratio1 = 18, ratio2 = 18, mode = pcu_aileron}
-flp_L = Control_surface:new{aces = {1, 4}, hyd_sys = {1, 3}, ratio1 = 18, ratio2 = 36, mode = pcu_flaperon}
-flp_R = Control_surface:new{aces = {2, 3}, hyd_sys = {2, 3}, ratio1 = 18, ratio2 = 36, mode = pcu_flaperon}
-sp_1 = Control_surface:new{aces = {3}, hyd_sys = {2}, ratio1 = 60, ratio2 = 0, mode = pcu_sp}
-sp_2 = Control_surface:new{aces = {1}, hyd_sys = {1}, ratio1 = 60, ratio2 = 0, mode = pcu_sp}
-sp_3 = Control_surface:new{aces = {4}, hyd_sys = {3}, ratio1 = 60, ratio2 = 0, mode = pcu_sp}
-sp_4 = Control_surface:new{aces = {2}, hyd_sys = {1}, ratio1 = 45, ratio2 = 0, mode = pcu_sp}
-sp_5 = Control_surface:new{aces = {2}, hyd_sys = {2}, ratio1 = 60, ratio2 = 0, mode = pcu_sp}
-elev_L = Control_surface:new{aces = {1, 3}, hyd_sys = {1, 2}, ratio1 = 33, ratio2 = 27, mode = pcu_elevator}
-elev_R = Control_surface:new{aces = {2, 4}, hyd_sys = {1, 3}, ratio1 = 33, ratio2 = 27, mode = pcu_elevator}
-rudder = Control_surface:new{aces = {1, 3, 4}, hyd_sys = {1, 2, 3}, ratio1 = 27, ratio2 = 27, mode = pcu_rudder}
+ail_L = Control_surface:new{aces = {2, 3}, hyd_sys = {1, 2}, full_up = 33, full_dn = 19, mode = pcu_aileron}
+ail_R = Control_surface:new{aces = {1, 4}, hyd_sys = {1, 2}, full_up = 33, full_dn = 19, mode = pcu_aileron}
+flp_L = Control_surface:new{aces = {1, 4}, hyd_sys = {1, 3}, full_up = 11, full_dn = 37, mode = pcu_flaperon}
+flp_R = Control_surface:new{aces = {2, 3}, hyd_sys = {2, 3}, full_up = 11, full_dn = 37, mode = pcu_flaperon}
+sp_1 = Control_surface:new{aces = {3}, hyd_sys = {2}, full_up = 60, full_dn = 0, mode = pcu_sp}
+sp_2 = Control_surface:new{aces = {1}, hyd_sys = {1}, full_up = 60, full_dn = 0, mode = pcu_sp}
+sp_3 = Control_surface:new{aces = {4}, hyd_sys = {3}, full_up = 60, full_dn = 0, mode = pcu_sp}
+sp_4 = Control_surface:new{aces = {2}, hyd_sys = {1}, full_up = 45, full_dn = 0, mode = pcu_sp}
+sp_5 = Control_surface:new{aces = {2}, hyd_sys = {2}, full_up = 60, full_dn = 0, mode = pcu_sp}
+elev_L = Control_surface:new{aces = {1, 3}, hyd_sys = {1, 2}, full_up = 33, full_dn = 27, mode = pcu_elevator}
+elev_R = Control_surface:new{aces = {2, 4}, hyd_sys = {1, 3}, full_up = 33, full_dn = 27, mode = pcu_elevator}
+rudder = Control_surface:new{aces = {1, 3, 4}, hyd_sys = {1, 2, 3}, full_up = 27, full_dn = 27, mode = pcu_rudder}
 
 spoilers = {sp_1, sp_2, sp_3, sp_4, sp_5}
 spoiler_fail = {ace_spoiler_fail_17, ace_spoiler_fail_2, ace_spoiler_fail_36, ace_spoiler_fail_4, ace_spoiler_fail_5}
@@ -557,10 +590,13 @@ function update()
     UpdateYaw(rudder)
     UpdatePitch(elev_L, elev_R)
     UpdateRudderTrim()
+    UpdateRudPedals()
+    UpdateManPitchTrim()
     UpdateStabTrim()
 end
 
 function onAirportLoaded()
+    set(stab_trim, -0.46)
     --Disable pfc self test
 	self_test_init = false
 end

@@ -11,7 +11,7 @@ include("misc_tools.lua")
 --X plane datarefs
 --Cockpit controls
 throttle_pos = globalPropertyf("sim/cockpit2/engine/actuators/throttle_ratio_all")
-yoke_heading_ratio = globalPropertyf("sim/cockpit2/controls/yoke_heading_ratio")
+rudder_pedals = globalPropertyf("Strato/777/cockpit/switches/rud_pedals")
 --gear_handle = globalPropertyi("sim/cockpit2/controls/gear_handle_down")
 --Indicators
 ra_pilot = globalPropertyf("sim/cockpit2/gauges/indicators/radio_altimeter_height_ft_pilot")
@@ -71,11 +71,13 @@ sys_R_press = globalPropertyfae("Strato/777/hydraulics/press", 3)
 c_time = globalPropertyf("Strato/777/time/current")
 gear_load = globalPropertyfae("Strato/777/hydraulics/load", 9)
 altn_gear = globalPropertyi("Strato/777/gear/altn_extnsn")
+gear_lever = globalPropertyi("Strato/777/cockpit/switches/gear_tgt")
 normal_gear = globalPropertyi("sim/cockpit2/controls/gear_handle_down")
 act_press = globalPropertyi("Strato/777/gear/actuator_press")
 kill_gear = globalPropertyi("Strato/777/kill_gear")
 
 handle_pos = createGlobalPropertyf("Strato/777/gear/norm_extnsn", 0)
+autobrk_pos = createGlobalPropertyi("Strato/777/gear/autobrake_pos", 0)
 lock_ovrd = createGlobalPropertyi("Strato/777/gear/lock_ovrd", 0)
 realistic_prk_brk = createGlobalPropertyi("Strato/777/gear/park_brake_realistic", 1)
 main_s_locked = createGlobalPropertyi("Strato/777/gear/main_s_locked", 1)
@@ -105,6 +107,7 @@ mlg_door_tgt = 0
 nose_door_tgt = 0
 nose_door_ready = false
 mlg_door_ready = false
+eag_claw_adjust = false
 mlg_target = 1
 nose_gear_target = 1
 ldg_extend = 0
@@ -480,13 +483,13 @@ function UpdateGearStrg(r_time)
 	if get(sys_C_press) > 450 then
 		local nw_tgt = 0
 		if get(nw_onground) == 1 then --steering happens only on ground to prevent tire skidding
-			nw_tgt = nw_ratio * get(yoke_heading_ratio)
+			nw_tgt = nw_ratio * get(rudder_pedals)
 		end
 		set(nw_strg, get(nw_strg) + (nw_tgt - get(nw_strg)) * r_time * get(f_time))
-		l_all = 0.05 * math.abs(get(yoke_heading_ratio))
+		l_all = 0.05 * math.abs(get(rudder_pedals))
 		if math.abs(get(nw_strg)) > 13 and get(throttle_pos) < 0.5 then
 			set(main_s_locked, 0)
-			w_tgt = (-1 * Round(get(yoke_heading_ratio), 3) - 0.185) / 0.815 * 14
+			w_tgt = (-1 * Round(get(rudder_pedals), 3) - 0.185) / 0.815 * 14
 		else
 			if math.abs(get(r_w_strg)) < 0.1 and math.abs(get(r_w_strg)) < 0.1 then
 				set(main_s_locked, 1)
@@ -506,38 +509,6 @@ function UpdateGearStrg(r_time)
 	set(r_w_strg, get(r_w_strg) + (w_tgt - get(r_w_strg)) * r_time * get(f_time))
 	set(l_w_strg, get(l_w_strg) + (w_tgt - get(l_w_strg)) * r_time * get(f_time))
 end
-
---function GetGVector()
---	
---end
---
---function UpdateGearPos()
---	--local sys_C_press = globalPropertyfae("Strato/777/hydraulics/press", 2)
---	for i=2,3 do
---		local lock = globalPropertyfae("Strato/777/gear/lock_f", i)
---		local act_press = globalPropertyiae("Strato/777/gear/actuator_press", i)
---		local tgt_d = globalPropertyfae("Strato/777/gear/tgt", i)
---		local side = -1
---		local p_factor = 0 --pressure factor
---		if get(sys_C_press) < 500 then
---			p_factor = 1
---		end
---		if i == 3 then
---			side = 1
---		end
---		local gear_actual = globalPropertyfae("sim/aircraft/parts/acf_gear_deploy", i)
---		--print((get(gear_handle) - get(gear_actual)) * 0.008 * (1 - p_factor))
---		local tgt = get(gear_actual) + (1 - get(gear_actual)) * 0.001 * p_factor + (get(gear_handle) - get(gear_actual)) * 0.008 * (1 - p_factor)
---		local phi = get(t_phi) * side
---		if phi >= 0 and phi < 90 then
---			tgt = get(gear_actual) + (1 - phi * get(lock) / 90 - get(gear_actual)) * get(f_time) * 0.5 * p_factor + (get(gear_handle) - get(gear_actual)) * 0.008 * (1 - p_factor)
---		--elseif phi > 90 then
---		--	tgt = get(gear_actual) + (0.3 - get(gear_actual)) * 0.1 * get(lock)
---		end
---		set(tgt_d, tgt)
---		set(gear_actual, tgt)
---	end
---end
 
 function IsNoseReady()
 	local door = globalPropertyfae("Strato/777/gear/doors", 2)
@@ -602,6 +573,7 @@ function UpdateActuatorPress()
 			nose_door_tgt = 1
 			UpdateGearDoors()
 			if IsNoseReady() == true then
+				print(nose_door_tgt, nose_gear_target)
 				ldg_extend = 1
 				nose_gear_locked = 0
 				if get(sys_C_press) >= 100 and get(altn_gear) == 0 then
@@ -618,14 +590,16 @@ function UpdateActuatorPress()
 		actuator_press[1] = 0
 		nose_gear_locked = 1
 	end
+	
 	if get(lmw_speed) / 6.28 < 0.5 and get(rmw_speed) / 6.28 < 0.5 and get(mlg_actual_R) ~= mlg_target then
 		if mlg_target == 0 and get(sys_C_press) >= 1000 then
 			--Gear retraction
 			eag_claw_sync = 0
+			eag_claw_adjust = false
 			eag_claw_target[1] = 0
 			eag_claw_target[2] = 0
 			mlg_door_tgt = 1
-			if AreMlgReady() == true then
+			if AreMlgReady() then
 				mlg_locked = 0 --Unlocking gear to allow movement
 				eag_claw_sync = 0
 				if get(mlg_actual_R) > 0.8 and get(custom_eag_L) == 0 and get(custom_eag_R) == 0 then
@@ -637,8 +611,9 @@ function UpdateActuatorPress()
 		elseif mlg_target == 1 then
 			set(kill_gear, 0)
 			mlg_door_tgt = 1
-			if AreMlgReady() == true then
+			if AreMlgReady() then
 				--Gear extension
+				eag_claw_adjust = true
 				ldg_extend = 1
 				mlg_locked = 0
 				if get(sys_C_press) >= 200 and get(altn_gear) == 0 then
@@ -660,19 +635,23 @@ function UpdateActuatorPress()
 		elseif get(altn_gear) == 1 then
 			mlg_door_tgt = 1
 		end
-		if AreMlgReady() == true then 
+		eag_claw_target[1] = get(sim_eag_R) * mlg_target
+		eag_claw_target[2] = get(sim_eag_L) * mlg_target
+		if AreMlgReady() and eag_claw_adjust then 
 			--setting up eagle claw for target
-			eag_claw_target[1] = get(sim_eag_R) * mlg_target
-			eag_claw_target[2] = get(sim_eag_L) * mlg_target
-			eag_claw_sync = mlg_target
+			if math.abs(get(custom_eag_L) - eag_claw_target[1]) < 0.08 and 
+			   math.abs(get(custom_eag_R) - eag_claw_target[2]) < 0.08 then
+				eag_claw_sync = mlg_target
+			else
+				eag_claw_sync = 0
+			end
+			eag_claw_adjust = false
 		end
 		if ldg_extend == 1 and get(custom_eag_L) == eag_claw_target[1] and get(custom_eag_R) == eag_claw_target[2] then
-			eag_claw_sync = 1
 			ldg_extend = 0
 		end
 		--Locking gear
 		actuator_press[2] = 0
-		nose_gear_locked = 1
 		mlg_locked = 1
 	end
 	set(gear_load, 0.3 * (actuator_press[2] / 3000))
@@ -743,14 +722,16 @@ function onAirportLoaded()
 		set(brake_qty_L, 0.02)
 		set(brake_qty_R, 0.02)
 		set(kill_gear, 0)
+		set(gear_lever, 1)
 	end
 end
 
 function update()
 	set(gear_ovrd, 6)
+	UpdateManualBraking()
 	UpdateShuttleValve()
 	UpdateGearDoors()
-	set(handle_pos, get(handle_pos) + (get(normal_gear) - get(handle_pos)) * get(f_time) * 5)
+	set(handle_pos, get(handle_pos) + (get(gear_lever) - get(handle_pos)) * get(f_time) * 5)
 	UpdateLdgTarget()
 	UpdateBrakeTgt()
 	UpdateActuatorPress()

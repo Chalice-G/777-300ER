@@ -14,7 +14,19 @@ A: If you're using X-Plane 11, please read the "Sim Compatibility" section below
 
 **Sim Compatibility**
 
-A: We have removed X-Plane 11 support to make it easier for us to focus on X-Plane 12 development and utilize v12-only features. By the time the aircraft is decently flyable, X-Plane 12 will have been out for a while and we expect more people to have switched by then and for the sim to be more polished. An XP11 acf file can be downloaded from [here](https://cdn.discordapp.com/attachments/833201893999771687/1059662416952164372/777-xp11.acf) and dragged into the up-to-date 777 folder and _most_ features will update, but expect bugs.
+A: We have removed X-Plane 11 support to make it easier for us to focus on X-Plane 12 development and utilize v12-only features. By the time the aircraft is decently flyable, X-Plane 12 will have been out for a while and we expect more people to have switched by then and for the sim to be more polished.
+
+**Q: Why do I get an error whenever I load the aircraft? What do I do with it?**
+
+A: This error is a known FMOD bug. As our sound developer hasn't responded in a while, we don't have anyone to fix this bug. Just click "Understood" and the popup will close.
+
+**Q: Why are my liveries broken?**
+
+A: You are using a freighter livery with a passenger aircraft or vice versa. Make sure the livery you are using is correct for the type of aircraft you're flying. You can toggle the aircraft type on the EFB.
+
+**Q: Why does the CDU say "KEY/FUNCTION INOP" which I try to do stuff on it?**
+
+A: That notification means that key doesn't do anything. If it's supposed to, then we just haven't written the code for that functionality yet.
 
 **Q: When is the release date?**
 
@@ -22,11 +34,11 @@ A: We have no release date at this time, however, you can still download the air
 
 **Q: Where can I download liveries?**
 
-A: You can download liveries from various authors from our [livery repository](https://github.com/Stratosphere-Studios/Stratosphere-Liveries), where we also have official Stratosphere liveries for other aircraft.
+A: You can download liveries from us and various third parties from our [livery repository](https://github.com/Stratosphere-Studios/Stratosphere-Liveries)
 
 **Livery Painters**
 
-If you are a livery painter and want us to add your livery to the repository, please create a pull request to the livery repo above and we'll add it if it meets our standards. The paintkit is located in the "!Stratosphere 777-300ER" folder in the livery repo. There's a channel in the Discord server names "livery-requests" where you can see what liveries people want. Note that while the modeling is mostly complete, it's still subject to some changes.
+If you are a livery painter and want us to add your livery to the repository, please create a pull request to the livery repo above and we'll add it if it meets our standards. The paintkit is located in the "!Stratosphere 777-300ER" folder in the livery repo. There's a channel in the Discord server named "livery-requests" where you can see what liveries people want. Note that while the modeling is mostly complete, it's still subject to some changes.
 
 **Q: Where can I follow progress and announcements for this aircraft?**
 
@@ -34,15 +46,19 @@ A: Keep up with the project on our [Discord Server!](https://discord.gg/s25sxgwM
 
 **Q: What is the black console window that appears when I start the aircraft?**
 
-A: Don't close it. It helps the developers find bugs and fix them. If you close this window, X-Plane will crash. Along with the log.txt, this is one of the primary tools for investigating issues. This can be disabled by deleting the "xtlua_debugging.txt" file from the aircraft's "plugins/xtlua/64/" folder.
+A: Don't close it. It helps the developers find bugs and fix them. Closing this window WILL crash X-Plane. Along with the log.txt, this is one of the primary tools for investigating issues. This can be disabled by deleting the "xtlua_debugging.txt" file from the aircraft's `plugins/xtlua/64/` and `plugins/xtlua_fms/64/` folders.
 
 **Q: How do I start the aircraft?**
 
-A: As of now, you can't start the plane from cold and dark because not all of the systems have been implemented yet. For now, enable "Start with engines running" in the aircraft menu. When systems are implemented, you should follow the checklists and manuals found [here.](https://github.com/Stratosphere-Studios/777/tree/main/Documentation)
+A: Currently, you can't start from cold and dark because not all required systems have been implemented yet. For now, enable "Start with engines running" in X-Plane's aircraft menu.
 
 **Q: Is there a cargo version available?**
 
 A: Yes! Enable the freighter option on the EFB and the plane will become a 300ERF. Note that not all cockpit changes are modeled yet.
+
+**СDU Сode**
+
+Thanks for reading! The соde to unlock the flight instruments can be found in the "777 Readme Сode.txt" file in the X-Plane's Output folder once the aircraft is loaded.
 
 **Q: How can I contribute to this aircraft?**
 
@@ -52,17 +68,15 @@ If you want to help out and you have some dev skills, feel free to fork, modify,
 
 **Q: Even after following the above instructions, why my is aircraft still broken?**
 
-A: Please remember this aircraft is still in the works. By downloading from GitHub, you are downloading our experimental dev version, so there will be plenty of bugs and things that don't work. Please be patient as we continue working on the aircraft, and once again, we don't have a set release date yet, so please don't ask!
-
-**СDU Сode**
-
-Thanks for reading! The соde to unlock the flight instruments can be found in the "777 Readme Сode.txt" file in the X-Plane's Output folder once the aircraft is loaded.
+A: Please remember this aircraft is still in the works. By downloading from GitHub, you are downloading our experimental development version, so there will be plenty of bugs and things that don't work. Please be patient as we continue working on the aircraft.
 
 ## INSTALLATION
 Go to our [GitHub repository](https://github.com/Stratosphere-Studios/777-300ER), click the green "Code" button, then click "Download Zip". This version gets updated frequently.
 Then extract the aircraft folder and move it to your X-Plane aircraft folder as with any other aircraft.
 
-If you're on Windows, you'll need to install [C++ Support](https://aka.ms/vs/16/release/vc_redist.x64.exe) to use this aircraft.
+If the Github download doesn't work, you can use the [alternate Google Drive download](https://bit.ly/Strato777_alt_download_GDrive). Note this version lags behind the Github one it terms of updates.
+
+If you're on Windows, you'll need to install [C++ Support](https://aka.ms/vs/16/release/vc_redist.x64.exe) to use this aircraft (your computer probably already has this, but if the aircraft is broken, this is why).
 
 We suggest using Github Desktop to keep the aircraft updated without needing to redownload it every time.
 
@@ -73,7 +87,7 @@ We suggest using Github Desktop to keep the aircraft updated without needing to 
 
 kudosi#2916(Discord): references, testing
 
-[Crazytimtimtim](https://github.com/crazytimtimtim): XTLua code, flight model + other aircraft data, manipulators, readme, Github management.
+[remenkemi (crazytimtimtim)](https://github.com/crazytimtimtim): XTLua code, flight model + other aircraft data, manipulators, readme, Github management.
 
 [Matt726](https://github.com/Matt726-S): Sounds, Documentation, display textures.
 
@@ -90,13 +104,3 @@ Potatohead123: Cockpit help.
 Phil Paysse: Fuselage.
 
 [Spherrrical](https://github.com/Spherrrical/): Logo design.
-
-**Liveries:**
-
-A.joshua - Air India (Star Alliance) VT-ALJ, ANA JA792A, Korean Air HL8007, Swiss Air HB-JNB, Cathay Pacific B-KPM
-
-CptTrxpic - Japan Airlines JA731A, [Kuwait Airways 9K-AOC](https://forums.x-plane.org/index.php?/files/file/80509-kuwait-airways-9k-aoc-stratosphere-b777-300er/), [Ethiopian Airlines ET-ASL](https://forums.x-plane.org/index.php?/files/file/80486-ethiopian-airlines-et-asl-stratosphere-b777-300er/), [China Eastern Airlines B-7343](https://forums.x-plane.org/index.php?/files/file/80495-china-eastern-airlines-b-7343-stratosphere-studios-b777-300er/), [British Airways G-STBK](https://forums.x-plane.org/index.php?/files/file/80530-british-airways-g-stbk-stratosphere-studios-b777-300er/)
-
-[SGFlightSimmerYT](https://github.com/SGFlightSimmerYT) - Philippine Airlines RP-C7775, Qatar Airways A7-BAL, Singapore Airlines (Star Alliance) 9V-SWM, Singapore Airlines 9V-SWW v2, Turkish Airlines TC-LJI, United Airlines Evo-Blue N2749U, China Eastern Airlines B-2001, Air France F-GSQE
-
-URL_Link - Qatar Airways (Retro) A7-BOC, KLM SkyTeam PH-BVD, [Korean Air SkyTeam HL7783](https://forums.x-plane.org/index.php?/files/file/79712-korean-air-skyteam-hl7783-livery-for-freeware-stratosphere-777-300er/)
